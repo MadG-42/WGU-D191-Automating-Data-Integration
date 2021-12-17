@@ -1,0 +1,156 @@
+---CREATE TABLES-------------------------------------------------------------------------------------------------------------
+----------------------------------------------CREATE DETAILED TABLE ------------------------------------------------------------
+
+DROP TABLE IF EXISTS detailed;
+CREATE TABLE detailed (
+	customer_id integer,
+	first_name varchar (45),
+	last_name varchar (45),
+	email varchar(90),
+	rental_id integer,
+	rental_date timestamp,
+	return_date timestamp,
+	staff_id integer
+);
+
+-- This creates an empty table titled detailed that will hold the information for the 
+-- detailed section of the business report 
+
+
+SELECT * 
+FROM detailed; 
+
+-- To veiw the empty detailed table 
+
+
+----------------------------------------------CREATE EMPTY SUMMARY TABLE--------------------------------------------------
+
+
+CREATE TABLE summary(
+	customer_name varchar(95),
+	email varchar(90),
+	customer_count integer
+
+);
+
+-- This creates an empty table titled summary that will hold the information for the 
+-- summary section of the business report 
+
+SELECT * 
+FROM detailed; 
+
+-- To veiw the emty detailed table 
+
+------ INSERTING DATA INTO THE DETAILED TABLE --------------------------------------------------------------------------------------------
+
+
+INSERT INTO detailed(
+	customer_id, -- customer
+	first_name, -- customer
+	last_name, -- customer
+	email, -- customer
+	rental_id, -- rental
+	rental_date, -- rental
+	return_date, -- rental
+	staff_id  --rental
+)
+SELECT 
+	c.customer_id, c.first_name, c.last_name, c.email,
+	r.rental_id, r.rental_date, r.return_date, r.staff_id
+FROM rental AS r 
+INNER JOIN customer AS c ON c.customer_id = r.customer_id;
+
+--- This will load the information from the customer and rental tables into the detailed
+-- table, 
+
+SELECT * 
+FROM detailed;
+
+-- To veiw the now filled detailed table
+
+
+-- CREATING THE FUNCTION-------------------------------------------------------------------------------------------------
+---------------------Updating the summary table-----------------------------------------------------------------
+
+CREATE FUNCTION summary_refresh_fun()
+RETURNS TRIGGER 
+LANGUAGE plpgsql
+AS $$ 
+BEGIN
+
+DELETE FROM summary;
+-- this will empty the summary table. 
+
+INSERT INTO summary (
+	SELECT 
+		concat_ws (', ', last_name, first_name) AS customer_name,
+		email,
+		COUNT(customer_id)
+	FROM detailed
+	GROUP BY customer_id, customer_name, email
+	-- HAVING count(customer_id) > 30
+	ORDER BY count(customer_id)DESC
+	LIMIT 100
+);
+
+RETURN NEW;
+END; $$
+
+--This function will refresh the summary table with data taken from the detailed table
+
+-- CREATING THE TRIGGER---------------------------------------------------------------------------------------------
+
+CREATE TRIGGER summary_refresh
+AFTER INSERT ON detailed
+FOR EACH STATEMENT
+EXECUTE PROCEDURE summary_refresh_fun();
+
+--This trigger will execute the function that I just created summary_refresh_fun()
+-- when there is an insert into the detailed function.
+
+--Lastly, Let's create the procedure.
+
+
+--CREATING THE PROCEDURE -----------------------------------------------------------------------------------------
+
+
+CREATE PROCEDURE refresh_tables()
+LANGUAGE plpgsql
+AS $$ 
+BEGIN
+
+DELETE FROM detailed; -- this will empty the detailed table on any existing info.
+
+INSERT INTO detailed(
+	customer_id, -- customer
+	first_name, -- customer
+	last_name, -- customer
+	email, -- customer
+	rental_id, -- rental
+	rental_date, -- rental
+	return_date, -- rental
+	staff_id  --rental
+)
+SELECT 
+	c.customer_id, c.first_name, c.last_name, c.email,
+	r.rental_id, r.rental_date, r.return_date, r.staff_id
+FROM rental AS r 
+INNER JOIN customer AS c ON c.customer_id = r.customer_id;
+--reinserting the new data into the detailed table 
+END;$$
+
+
+
+-- To call stored procedure
+-- CALL refresh_tables();
+
+
+-- To view results
+-- SELECT * 
+	FROM detailed;
+
+-- SELECT * 
+	FROM summary;
+
+
+
